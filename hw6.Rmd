@@ -1,0 +1,46 @@
+---
+title: "P8105 Homework 6 - Tanya Butt (thb2114)"
+output: github_document
+---
+
+```{r, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(patchwork)
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+## Problem 1
+
+```{r, collapse = TRUE}
+birthweight_df = 
+  read_csv("birthweight.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(
+    babysex = as.factor(babysex),
+    malform = as.factor(malform),
+    frace = as.factor(frace),
+    mrace = as.factor(mrace)
+  ) %>% 
+  select(-c(pnumlbw, pnumsga))
+    
+fit = lm(price ~ stars + borough, data = nyc_airbnb)
+  
+  
+skimr::skim(birthweight_df)
+
+```
+
