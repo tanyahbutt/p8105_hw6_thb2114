@@ -35,12 +35,26 @@ birthweight_df =
     frace = as.factor(frace),
     mrace = as.factor(mrace)
   ) %>% 
-  select(-c(pnumlbw, pnumsga))
-    
-fit = lm(price ~ stars + borough, data = nyc_airbnb)
-  
-  
-skimr::skim(birthweight_df)
+  select(-c(pnumlbw, pnumsga)) 
+```
 
+```{r, collapse = TRUE}
+fit = lm(bwt ~ gaweeks + momage + delwt  + wtgain, data = birthweight_df) %>% 
+  broom::tidy()
+
+fit
+```
+
+```{r}
+fit_alt_1 = lm(bwt ~ blength + gaweeks, data = birthweight_df) %>% 
+  broom::tidy()
+
+fit_alt_1
+
+fit_alt_2 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex +
+            blength*babysex + bhead*blength*babysex, data = birthweight_df) %>% 
+  broom::tidy()
+
+fit_alt_2
 ```
 
