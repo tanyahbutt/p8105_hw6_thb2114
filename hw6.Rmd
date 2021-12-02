@@ -83,6 +83,8 @@ weather_df =
     tmin = tmin / 10,
     tmax = tmax / 10) %>%
   select(name, id, everything())
+
+set.seed(1)
 ```
 
 ```{r}
@@ -91,7 +93,7 @@ boot_sample = function(df) {
 }
 
 boot_straps = 
-  data_frame(
+  tibble(
     strap_number = 1:5000,
     strap_sample = rerun(5000, boot_sample(weather_df))
   )
