@@ -39,10 +39,21 @@ birthweight_df =
 ```
 
 ```{r, collapse = TRUE}
-fit = lm(bwt ~ gaweeks + momage + delwt  + wtgain, data = birthweight_df) %>% 
-  broom::tidy()
+fit_df = 
+  birthweight_df %>% 
+  select(gaweeks, momage, delwt, wtgain, bwt)
+
+fit = lm(bwt ~ gaweeks + momage + delwt  + wtgain, data = fit_df) 
+
+fit_df %>% 
+  add_residuals(fit) %>% 
+  add_predictions(fit)
+
+  ggplot(aes(x = wtgain, y = resid)) + geom_point()
 
 fit
+
+
 ```
 
 ```{r}
@@ -56,5 +67,35 @@ fit_alt_2 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex +
   broom::tidy()
 
 fit_alt_2
+```
+
+## Problem 2
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
+```{r}
+boot_sample = function(df) {
+  sample_frac(df, replace = TRUE)
+}
+
+boot_straps = 
+  data_frame(
+    strap_number = 1:5000,
+    strap_sample = rerun(5000, boot_sample(weather_df))
+  )
+
+boot_straps
 ```
 
