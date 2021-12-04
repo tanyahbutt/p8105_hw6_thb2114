@@ -6,6 +6,7 @@ output: github_document
 ```{r, echo = FALSE, message = FALSE}
 library(tidyverse)
 library(patchwork)
+library(mgcv)
 knitr::opts_chunk$set(
   fig.width = 6,
   fig.asp = .6,
@@ -25,6 +26,7 @@ scale_fill_discrete = scale_fill_viridis_d
 
 ## Problem 1
 
+Loading and cleaning the birthweight dataset:
 ```{r, collapse = TRUE}
 birthweight_df = 
   read_csv("birthweight.csv") %>% 
@@ -38,24 +40,33 @@ birthweight_df =
   select(-c(pnumlbw, pnumsga)) 
 ```
 
+Below I propose a regression model for birthweight, based on a hypothesized 
+structure of specific factors. The factors included in the proposed model are 
+based on published references of potential influences on infant birth weight.
+
+These factors include: the baby's sex, gestational age in weeks, mother's  age 
+and weight at delivery, and mother's weight gain during pregnancy (lbs).
+
 ```{r, collapse = TRUE}
 fit_df = 
   birthweight_df %>% 
-  select(gaweeks, momage, delwt, wtgain, bwt)
+  select(babysex, gaweeks, momage, delwt, wtgain, bwt)
 
-fit = lm(bwt ~ gaweeks + momage + delwt  + wtgain, data = fit_df) 
+fit = lm(bwt ~ babysex + gaweeks + momage + delwt  + wtgain, data = fit_df)
 
+fit %>% broom::tidy()
+```
+
+Below is a plot of the model's residuals against fitted values:
+```{r, collapse = TRUE}
 fit_df %>% 
   modelr::add_residuals(fit) %>% 
   modelr::add_predictions(fit) %>% 
   ggplot(aes(x = pred, y = resid)) + geom_point()
-
-fit
-
-
 ```
 
-```{r}
+I will now compare my model against two other models:
+```{r, collapse = TRUE}
 fit_alt_1 = lm(bwt ~ blength + gaweeks, data = birthweight_df) %>% 
   broom::tidy()
 
