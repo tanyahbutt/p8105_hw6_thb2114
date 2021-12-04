@@ -35,11 +35,7 @@ mother’s age and weight at delivery, and mother’s weight gain during
 pregnancy (lbs).
 
 ``` r
-fit_df = 
-  birthweight_df %>% 
-  select(babysex, gaweeks, momage, delwt, wtgain, bwt)
-
-fit = lm(bwt ~ babysex + gaweeks + momage + delwt  + wtgain, data = fit_df)
+fit = lm(bwt ~ babysex + gaweeks + momage + delwt  + wtgain, data = birthweight_df)
 
 fit %>% broom::tidy()
 ## # A tibble: 6 × 5
@@ -56,45 +52,55 @@ fit %>% broom::tidy()
 Below is a plot of the model’s residuals against fitted values:
 
 ``` r
-fit_df %>% 
-  modelr::add_residuals(fit) %>% 
-  modelr::add_predictions(fit) %>% 
+birthweight_df %>% 
+  add_residuals(fit) %>% 
+  add_predictions(fit) %>% 
   ggplot(aes(x = pred, y = resid)) + geom_point()
 ```
 
 <img src="hw6_files/figure-gfm/unnamed-chunk-4-1.png" width="90%" />
 
-I will now compare my model against two other models:
+I will now compare my model against two models below:
 
 ``` r
-fit_alt_1 = lm(bwt ~ blength + gaweeks, data = birthweight_df) %>% 
-  broom::tidy()
+cv_df =
+  crossv_mc(birthweight_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
 
-fit_alt_1
-## # A tibble: 3 × 5
-##   term        estimate std.error statistic  p.value
-##   <chr>          <dbl>     <dbl>     <dbl>    <dbl>
-## 1 (Intercept)  -4348.      98.0      -44.4 0       
-## 2 blength        129.       1.99      64.6 0       
-## 3 gaweeks         27.0      1.72      15.7 2.36e-54
+cv_df = 
+  cv_df %>% 
+  mutate(
+    fit_mod  = map(train, ~lm(bwt ~ babysex + gaweeks + momage + delwt + wtgain, 
+                              data = .x)),
+    fit_alt_mod_1 = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    fit_alt_mod_2 = map(train, ~lm(bwt ~ bhead + blength + babysex + 
+                              bhead*blength + bhead*babysex + blength*babysex +
+                              bhead*blength*babysex, data = .x))) %>% 
+  mutate(
+    rmse_fit_mod = map2_dbl(fit_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_fit_alt_mod_1 = map2_dbl(fit_alt_mod_1, test, ~rmse(model = .x, data = .y)),
+    rmse_fit_alt_mod_2 = map2_dbl(fit_alt_mod_2, test, ~rmse(model = .x, data = .y)))
 
-fit_alt_2 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex +
-            blength*babysex + bhead*blength*babysex, data = birthweight_df) %>% 
-  broom::tidy()
-
-fit_alt_2
-## # A tibble: 8 × 5
-##   term                    estimate std.error statistic      p.value
-##   <chr>                      <dbl>     <dbl>     <dbl>        <dbl>
-## 1 (Intercept)            -7177.     1265.       -5.67  0.0000000149
-## 2 bhead                    182.       38.1       4.78  0.00000184  
-## 3 blength                  102.       26.2       3.90  0.0000992   
-## 4 babysex2                6375.     1678.        3.80  0.000147    
-## 5 bhead:blength             -0.554     0.780    -0.710 0.478       
-## 6 bhead:babysex2          -198.       51.1      -3.88  0.000105    
-## 7 blength:babysex2        -124.       35.1      -3.52  0.000429    
-## 8 bhead:blength:babysex2     3.88      1.06      3.67  0.000245
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
+
+<img src="hw6_files/figure-gfm/unnamed-chunk-5-1.png" width="90%" />
+
+It appears as though alternative model 2, which includes head
+circumference, length, sex, and all interactions between these
+variables, had the best predictive accuracy. Whether this model is the
+best to use remains to be determined, as model fitting requires
+balancing complexity with goodness of fit and interpretability.
 
 ## Problem 2
 

@@ -5,8 +5,9 @@ output: github_document
 
 ```{r, echo = FALSE, message = FALSE}
 library(tidyverse)
-library(patchwork)
+library(viridis)
 library(mgcv)
+library(modelr)
 knitr::opts_chunk$set(
   fig.width = 6,
   fig.asp = .6,
@@ -48,36 +49,58 @@ These factors include: the baby's sex, gestational age in weeks, mother's  age
 and weight at delivery, and mother's weight gain during pregnancy (lbs).
 
 ```{r, collapse = TRUE}
-fit_df = 
-  birthweight_df %>% 
-  select(babysex, gaweeks, momage, delwt, wtgain, bwt)
-
-fit = lm(bwt ~ babysex + gaweeks + momage + delwt  + wtgain, data = fit_df)
+fit = lm(bwt ~ babysex + gaweeks + momage + delwt  + wtgain, data = birthweight_df)
 
 fit %>% broom::tidy()
 ```
 
 Below is a plot of the model's residuals against fitted values:
 ```{r, collapse = TRUE}
-fit_df %>% 
-  modelr::add_residuals(fit) %>% 
-  modelr::add_predictions(fit) %>% 
+birthweight_df %>% 
+  add_residuals(fit) %>% 
+  add_predictions(fit) %>% 
   ggplot(aes(x = pred, y = resid)) + geom_point()
 ```
 
-I will now compare my model against two other models:
+I will now compare my model against two models below:
 ```{r, collapse = TRUE}
-fit_alt_1 = lm(bwt ~ blength + gaweeks, data = birthweight_df) %>% 
-  broom::tidy()
+cv_df =
+  crossv_mc(birthweight_df, 100) %>% 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble))
 
-fit_alt_1
+cv_df = 
+  cv_df %>% 
+  mutate(
+    fit_mod  = map(train, ~lm(bwt ~ babysex + gaweeks + momage + delwt + wtgain, 
+                              data = .x)),
+    fit_alt_mod_1 = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    fit_alt_mod_2 = map(train, ~lm(bwt ~ bhead + blength + babysex + 
+                              bhead*blength + bhead*babysex + blength*babysex +
+                              bhead*blength*babysex, data = .x))) %>% 
+  mutate(
+    rmse_fit_mod = map2_dbl(fit_mod, test, ~rmse(model = .x, data = .y)),
+    rmse_fit_alt_mod_1 = map2_dbl(fit_alt_mod_1, test, ~rmse(model = .x, data = .y)),
+    rmse_fit_alt_mod_2 = map2_dbl(fit_alt_mod_2, test, ~rmse(model = .x, data = .y)))
 
-fit_alt_2 = lm(bwt ~ bhead + blength + babysex + bhead*blength + bhead*babysex +
-            blength*babysex + bhead*blength*babysex, data = birthweight_df) %>% 
-  broom::tidy()
-
-fit_alt_2
+cv_df %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model", 
+    values_to = "rmse",
+    names_prefix = "rmse_") %>% 
+  mutate(model = fct_inorder(model)) %>% 
+  ggplot(aes(x = model, y = rmse)) + geom_violin()
 ```
+
+It appears as though alternative model 2, which includes head circumference, 
+length, sex, and all interactions between these variables, had the best 
+predictive accuracy. Whether this model is the best to use remains to be 
+determined, as model fitting requires balancing complexity with goodness of fit
+and interpretability. 
+
 
 ## Problem 2
 
