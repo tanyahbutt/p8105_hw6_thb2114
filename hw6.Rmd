@@ -46,10 +46,9 @@ fit_df =
 fit = lm(bwt ~ gaweeks + momage + delwt  + wtgain, data = fit_df) 
 
 fit_df %>% 
-  add_residuals(fit) %>% 
-  add_predictions(fit)
-
-  ggplot(aes(x = wtgain, y = resid)) + geom_point()
+  modelr::add_residuals(fit) %>% 
+  modelr::add_predictions(fit) %>% 
+  ggplot(aes(x = pred, y = resid)) + geom_point()
 
 fit
 
@@ -71,7 +70,8 @@ fit_alt_2
 
 ## Problem 2
 
-```{r}
+Loading the 2017 Central Park weather data:
+```{r, collapse = TRUE}
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -87,7 +87,8 @@ weather_df =
 set.seed(1)
 ```
 
-```{r}
+Creating 5000 bootstrap samples:
+```{r, collapse = TRUE}
 boot_sample = function(df) {
   sample_frac(df, replace = TRUE)
 }
@@ -100,4 +101,72 @@ boot_straps =
 
 boot_straps
 ```
+
+Determining the distribution of r-squared hat:
+```{r, collapse = TRUE}
+bootstrap_results_1 = 
+  boot_straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = .x) ),
+    results = map(models, broom::glance)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest(results)
+  
+bootstrap_results_1_graph = ggplot(bootstrap_results_1, aes(x = r.squared)) + 
+  geom_density()
+
+bootstrap_results_1_graph
+```
+
+The distribution has a bit of a heavy tail extending to the lower values, 
+suggesting there may be outliers included in the bootstrap sample.
+
+Below is a table of the 95% CI for r hat squared calculated using the 5000 
+bootstrap samples:
+```{r, collapse = TRUE}
+bootstrap_results_1 %>% 
+  summarize(
+    ci_lower = quantile(r.squared, 0.025),
+    ci_upper = quantile(r.squared, 0.975)) %>% 
+  knitr::kable()
+```
+
+Determining the distribution of log(beta zero hat * beta one hat):
+```{r, collapse = TRUE}
+bootstrap_results_2 = 
+  boot_straps %>% 
+  mutate(
+    models = map(strap_sample, ~lm(tmax ~ tmin, data = .x) ),
+    results = map(models, broom::tidy)) %>% 
+  select(-strap_sample, -models) %>% 
+  unnest(results) %>%
+  select(strap_number, term, estimate) %>% 
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) %>% 
+  rename(beta_zero = `(Intercept)`) %>% 
+  rename(beta_one = tmin) %>% 
+  mutate(log_interaction = log(beta_zero*beta_one))
+
+bootstrap_results_2_graph = ggplot(bootstrap_results_2, aes(x = log_interaction)) + 
+  geom_density()
+  
+bootstrap_results_2_graph
+```
+
+The distribution appears closer to normal than the r-squared hat distribution. 
+There is a bit of a "shoulder" in the upper values, which may be related to the
+frequency of outliers in the bootstrap sample.
+
+Below is a table of the 95% CI for the log(beta zero hat * beta one hat) 
+calculated using the 5000 bootstrap samples:
+```{r, collapse = TRUE}
+bootstrap_results_2 %>% 
+  summarize(
+    ci_lower = quantile(log_interaction, 0.025),
+    ci_upper = quantile(log_interaction, 0.975)) %>% 
+  knitr::kable()
+```
+
 
